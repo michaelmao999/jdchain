@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -25,6 +23,8 @@ public class HomeBooter {
 	private static final Pattern ARG_PATTERN = Pattern.compile("^[\\-]\\w+[ ]*(=).*$");
 
 	private static final String HOME = "-home";
+
+	private static final String CONFIG = "-c";
 
 	private static final String MODE = "-mode";
 	private static final String MODE_DEBUG = "debug";
@@ -57,14 +57,23 @@ public class HomeBooter {
 		if (home == null) {
 			throw new IllegalArgumentException("Miss home dir!");
 		}
-
+        LinkedHashMap<String, String> configMap = resolveConfig(args);
+		configMap.remove(MODE);
+		if (!configMap.containsKey(CONFIG)) {
+		    if (home.endsWith("/") || home.endsWith("\\")) {
+                configMap.put(CONFIG, home + "config/ledger-binding.conf");
+            } else {
+                configMap.put(CONFIG, home + "/config/ledger-binding.conf");
+            }
+        }
 		List<String> peerArgList = new ArrayList<>();
-		for (String a : args) {
-			if (a.startsWith(HOME) || a.startsWith(MODE)) {
-				continue;
-			}
-			peerArgList.add(a);
-		}
+		Iterator<Map.Entry<String, String>> iter = configMap.entrySet().iterator();
+		while (iter.hasNext()) {
+            Map.Entry<String, String> entry = iter.next();
+            peerArgList.add(entry.getKey());
+            peerArgList.add(entry.getValue());
+        }
+
 		String[] peerArgs = peerArgList.size() > 0 ? peerArgList.toArray(new String[peerArgList.size()]) : new String[0];
 
 		File homeDir = new File(home);
@@ -151,5 +160,26 @@ public class HomeBooter {
 
 		return prop;
 	}
+
+
+	private static LinkedHashMap<String, String> resolveConfig(String[] args) {
+		LinkedHashMap<String, String> prop = new LinkedHashMap<>();
+		if (args == null || args.length == 0) {
+			return prop;
+		}
+		int len = args.length;
+		for (int index = 0; index < len; index++) {
+			if (args[index].startsWith("-")) {
+				if (args[index].indexOf("=") > 0 || index == len - 1) {
+					continue;
+				}
+				prop.put(args[index], args[index+1]);
+				index++;
+			}
+		}
+
+		return prop;
+	}
+
 
 }
