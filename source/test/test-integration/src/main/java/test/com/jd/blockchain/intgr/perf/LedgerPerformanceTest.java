@@ -3,11 +3,7 @@ package test.com.jd.blockchain.intgr.perf;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.DoubleStream;
 
@@ -641,6 +637,22 @@ public class LedgerPerformanceTest {
 
 		@Override
 		public SecurityPolicy createSecurityPolicy(Set<Bytes> endpoints, Set<Bytes> nodes) {
+			return new FreedomSecurityPolicy(endpoints, nodes);
+		}
+
+		@Override
+		public SecurityPolicy createSingleNodeSecurityPolicy(Set<Bytes> endpoints, Bytes node) {
+			Set<Bytes> nodes = new HashSet<>(1);
+			nodes.add(node);
+			return new FreedomSecurityPolicy(endpoints, nodes);
+		}
+
+		@Override
+		public SecurityPolicy createSingleSecurityPolicy(Bytes endpoint, Bytes node) {
+			Set<Bytes> nodes = new HashSet<>(1);
+			nodes.add(node);
+			Set<Bytes> endpoints = new HashSet<>(1);
+			endpoints.add(endpoint);
 			return new FreedomSecurityPolicy(endpoints, nodes);
 		}
 

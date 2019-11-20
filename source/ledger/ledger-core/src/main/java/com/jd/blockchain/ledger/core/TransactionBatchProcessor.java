@@ -99,14 +99,26 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 	public TransactionResponse schedule(TransactionRequest request) {
 		TransactionResponse resp;
 		try {
-			LOGGER.debug("Start handling transaction... --[BlockHeight={}][RequestHash={}][TxHash={}]",
-					newBlockEditor.getBlockHeight(), request.getHash(), request.getTransactionContent().getHash());
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Start handling transaction... --[BlockHeight={}][RequestHash={}][TxHash={}]",
+						newBlockEditor.getBlockHeight(), request.getHash(), request.getTransactionContent().getHash());
+			}
 
 			TransactionRequestExtension reqExt = new TransactionRequestExtensionImpl(request);
 
 			// 初始化交易的用户安全策略；
-			SecurityPolicy securityPolicy = securityManager.createSecurityPolicy(reqExt.getEndpointAddresses(),
-					reqExt.getNodeAddresses());
+			SecurityPolicy securityPolicy;
+			if (reqExt.isSingleNodeSignature() && reqExt.isSingleEndpointSignature()) {
+				securityPolicy = securityManager.createSingleSecurityPolicy(reqExt.getEndpointAddress(),
+						reqExt.getNodeAddress());
+			}else if (reqExt.isSingleNodeSignature()) {
+				securityPolicy = securityManager.createSingleNodeSecurityPolicy(reqExt.getEndpointAddresses(),
+						reqExt.getNodeAddress());
+			} else {
+				securityPolicy = securityManager.createSecurityPolicy(reqExt.getEndpointAddresses(),
+						reqExt.getNodeAddresses());
+			}
+
 			SecurityContext.setContextUsersPolicy(securityPolicy);
 
 			// 安全校验；
@@ -122,8 +134,10 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 			// 处理交易；
 			resp = handleTx(reqExt, txCtx);
 
-			LOGGER.debug("Complete handling transaction.  --[BlockHeight={}][RequestHash={}][TxHash={}]",
-					newBlockEditor.getBlockHeight(), request.getHash(), request.getTransactionContent().getHash());
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Complete handling transaction.  --[BlockHeight={}][RequestHash={}][TxHash={}]",
+						newBlockEditor.getBlockHeight(), request.getHash(), request.getTransactionContent().getHash());
+			}
 
 		} catch (IllegalTransactionException e) {
 			// 抛弃发生处理异常的交易请求；
@@ -190,16 +204,28 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 
 	private void checkNodeSignatures(TransactionRequestExtension request) {
 		TransactionContent txContent = request.getTransactionContent();
-		Collection<Credential> nodes = request.getNodes();
-		if (nodes != null) {
-			for (Credential node : nodes) {
-				if (!SignatureUtils.verifyHashSignature(txContent.getHash(), node.getSignature().getDigest(),
-						node.getPubKey())) {
-					// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-					throw new IllegalTransactionException(
-							String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
-									request.getTransactionContent().getHash(), node.getAddress()),
-							TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+		if (request.isSingleNodeSignature()) {
+			Credential node = request.getNodeSignature();
+			if (!SignatureUtils.verifyHashSignature(txContent.getHash(), node.getSignature().getDigest(),
+					node.getPubKey())) {
+				// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
+				throw new IllegalTransactionException(
+						String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
+								request.getTransactionContent().getHash(), node.getAddress()),
+						TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+			}
+		} else {
+			Collection<Credential> nodes = request.getNodes();
+			if (nodes != null) {
+				for (Credential node : nodes) {
+					if (!SignatureUtils.verifyHashSignature(txContent.getHash(), node.getSignature().getDigest(),
+							node.getPubKey())) {
+						// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
+						throw new IllegalTransactionException(
+								String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
+										request.getTransactionContent().getHash(), node.getAddress()),
+								TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+					}
 				}
 			}
 		}
@@ -207,16 +233,28 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 
 	private void checkEndpointSignatures(TransactionRequestExtension request) {
 		TransactionContent txContent = request.getTransactionContent();
-		Collection<Credential> endpoints = request.getEndpoints();
-		if (endpoints != null) {
-			for (Credential endpoint : endpoints) {
-				if (!SignatureUtils.verifyHashSignature(txContent.getHash(), endpoint.getSignature().getDigest(),
-						endpoint.getPubKey())) {
-					// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-					throw new IllegalTransactionException(
-							String.format("Wrong transaction endpoint signature! --[Tx Hash=%s][Endpoint Signer=%s]!",
-									request.getTransactionContent().getHash(), endpoint.getAddress()),
-							TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+		if (request.isSingleEndpointSignature()) {
+			Credential endpoint = request.getEndpointSignature();
+			if (!SignatureUtils.verifyHashSignature(txContent.getHash(), endpoint.getSignature().getDigest(),
+					endpoint.getPubKey())) {
+				// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
+				throw new IllegalTransactionException(
+						String.format("Wrong transaction endpoint signature! --[Tx Hash=%s][Endpoint Signer=%s]!",
+								request.getTransactionContent().getHash(), endpoint.getAddress()),
+						TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+			}
+		} else {
+			Collection<Credential> endpoints = request.getEndpoints();
+			if (endpoints != null) {
+				for (Credential endpoint : endpoints) {
+					if (!SignatureUtils.verifyHashSignature(txContent.getHash(), endpoint.getSignature().getDigest(),
+							endpoint.getPubKey())) {
+						// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
+						throw new IllegalTransactionException(
+								String.format("Wrong transaction endpoint signature! --[Tx Hash=%s][Endpoint Signer=%s]!",
+										request.getTransactionContent().getHash(), endpoint.getAddress()),
+								TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+					}
 				}
 			}
 		}

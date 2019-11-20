@@ -17,4 +17,22 @@ public interface LedgerSecurityManager {
 	 */
 	SecurityPolicy createSecurityPolicy(Set<Bytes> endpoints, Set<Bytes> nodes);
 
+	/**
+	 * 创建一项与指定的终端用户和节点参与方相关的安全策略；
+	 *
+	 * @param endpoints 终端用户的地址列表；
+	 * @param node     节点参与方的地址；
+	 * @return 一项安全策略；
+	 */
+	SecurityPolicy createSingleNodeSecurityPolicy(Set<Bytes> endpoints, Bytes node);
+
+	/**
+	 * 创建一项与指定的终端用户和节点参与方相关的安全策略；
+	 *
+	 * @param endpoint 终端用户的地址；
+	 * @param node     节点参与方的地址；
+	 * @return 一项安全策略；
+	 */
+	SecurityPolicy createSingleSecurityPolicy(Bytes endpoint, Bytes node);
+
 }

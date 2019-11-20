@@ -47,6 +47,47 @@ public interface TransactionRequestExtension extends TransactionRequest {
 	Set<Bytes> getNodeAddresses();
 
 	/**
+	 *  是否只有一个节点签名
+	 * @return
+	 */
+	boolean isSingleNodeSignature();
+
+	/**
+	 *  签名发起请求的节点的地址
+	 *
+	 * @return
+	 */
+	Bytes getNodeAddress();
+
+	/**
+	 * 发起请求的节点的签名
+	 *
+	 * @return
+	 */
+	Credential getNodeSignature();
+
+	/**
+	 * 是否只有一个终端签名
+	 *
+	 * @return
+	 */
+	boolean isSingleEndpointSignature();
+
+	/**
+	 *  签名发起请求的终端的地址
+	 *
+	 * @return
+	 */
+	Bytes getEndpointAddress();
+
+	/**
+	 * 发起请求的终端的签名
+	 *
+	 * @return
+	 */
+	Credential getEndpointSignature();
+
+	/**
 	 * 签名发起请求的节点列表；
 	 * 
 	 * @return
@@ -93,6 +134,11 @@ public interface TransactionRequestExtension extends TransactionRequest {
 
 		Credential(DigitalSignature signature) {
 			this.identity = new BlockchainIdentityData(signature.getPubKey());
+			this.signature = signature;
+		}
+
+		Credential(BlockchainIdentity pubIdentity, DigitalSignature signature) {
+			this.identity = pubIdentity;
 			this.signature = signature;
 		}
 

@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.jd.blockchain.crypto.HashDigest;
+import com.jd.blockchain.ledger.BlockchainIdentity;
 import com.jd.blockchain.ledger.DigitalSignature;
 import com.jd.blockchain.ledger.TransactionContent;
 import com.jd.blockchain.ledger.TransactionRequest;
@@ -23,7 +24,16 @@ public class TransactionRequestExtensionImpl implements TransactionRequestExtens
 
 	private Map<Bytes, Credential> endpointSignatures = new HashMap<>();
 
+	private Bytes endpointAddress;
+	private Credential endpointSignature;
+	private boolean isSingleEndpointSignature;
+
 	private Map<Bytes, Credential> nodeSignatures = new HashMap<>();
+
+	private Bytes nodeAddress;
+	private Credential nodeSignature;
+	private boolean isSingleNodeSignature;
+
 
 	public TransactionRequestExtensionImpl(TransactionRequest request) {
 		this.request = request;
@@ -32,18 +42,57 @@ public class TransactionRequestExtensionImpl implements TransactionRequestExtens
 
 	private void resolveSigners() {
 		if (request.getEndpointSignatures() != null) {
-			for (DigitalSignature signature : request.getEndpointSignatures()) {
-				Credential cred = new Credential(signature);
-				endpointSignatures.put(cred.getIdentity().getAddress(), cred);
+			DigitalSignature[] endpointSignatureList = request.getEndpointSignatures();
+			isSingleEndpointSignature = endpointSignatureList.length == 1;
+			for (DigitalSignature signature : endpointSignatureList) {
+				if (isSingleEndpointSignature) {
+					BlockchainIdentity identity = PubKeyCacheFactory.getNodeIdentity(signature.getPubKey());
+					endpointSignature = new Credential(identity, signature);
+					endpointAddress = identity.getAddress();
+					endpointSignatures.put(endpointAddress, endpointSignature);
+				} else {
+					Credential cred = new Credential(signature);
+					endpointSignatures.put(cred.getIdentity().getAddress(), cred);
+				}
 			}
 		}
 		if (request.getEndpointSignatures() != null) {
-			for (DigitalSignature signature : request.getNodeSignatures()) {
-				Credential cred = new Credential(signature);
-				nodeSignatures.put(cred.getIdentity().getAddress(), cred);
+			DigitalSignature[] nodeSignatureList = request.getNodeSignatures();
+			isSingleNodeSignature = nodeSignatureList.length == 1;
+			for (DigitalSignature signature : nodeSignatureList) {
+				if (isSingleNodeSignature) {
+					BlockchainIdentity identity = PubKeyCacheFactory.getNodeIdentity(signature.getPubKey());
+					nodeSignature = new Credential(identity, signature);
+					nodeAddress = identity.getAddress();
+					nodeSignatures.put(nodeAddress, nodeSignature);
+				} else {
+					Credential cred = new Credential(signature);
+					nodeSignatures.put(cred.getIdentity().getAddress(), cred);
+				}
 			}
 		}
 	}
+
+	@Override
+	public boolean isSingleNodeSignature() {
+		return isSingleNodeSignature;
+	}
+
+	@Override
+	public Bytes getNodeAddress() {
+		return nodeAddress;
+	}
+
+	@Override
+	public boolean isSingleEndpointSignature() {
+		return isSingleEndpointSignature;
+	}
+
+	@Override
+	public Bytes getEndpointAddress() {
+		return endpointAddress;
+	}
+
 
 	@Override
 	public Set<Bytes> getEndpointAddresses() {
@@ -61,8 +110,19 @@ public class TransactionRequestExtensionImpl implements TransactionRequestExtens
 	}
 
 	@Override
+	public Credential getEndpointSignature() {
+		return endpointSignature;
+	}
+
+
+	@Override
 	public Collection<Credential> getNodes() {
 		return nodeSignatures.values();
+	}
+
+	@Override
+	public Credential getNodeSignature() {
+		return nodeSignature;
 	}
 
 	@Override

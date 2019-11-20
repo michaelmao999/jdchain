@@ -35,6 +35,8 @@ public class LedgerSecurityManagerImpl implements LedgerSecurityManager {
 	// 用户的权限配置
 	private Map<Bytes, UserRolesPrivileges> userPrivilegesCache = new ConcurrentHashMap<>();
 
+	private Map<Bytes, UserRolesPrivileges> nodePrivilegeMap = new ConcurrentHashMap<>();
+
 	private Map<Bytes, UserRoles> userRolesCache = new ConcurrentHashMap<>();
 	private Map<String, RolePrivileges> rolesPrivilegeCache = new ConcurrentHashMap<>();
 
@@ -65,6 +67,51 @@ public class LedgerSecurityManagerImpl implements LedgerSecurityManager {
 		}
 
 		return new UserRolesSecurityPolicy(endpointPrivilegeMap, nodePrivilegeMap, participantsQuery, userAccountsQuery);
+	}
+
+	@Override
+	public SecurityPolicy createSingleNodeSecurityPolicy(Set<Bytes> endpoints, Bytes node) {
+		Map<Bytes, UserRolesPrivileges> endpointPrivilegeMap = new HashMap<>();
+		Map<Bytes, UserRolesPrivileges> nodePrivilegeMap = new HashMap<>();
+
+		for (Bytes userAddress : endpoints) {
+			UserRolesPrivileges userPrivileges = getUserRolesPrivilegs(userAddress);
+			endpointPrivilegeMap.put(userAddress, userPrivileges);
+		}
+
+		UserRolesPrivileges userPrivileges = getNodeRolesPrivilegs(node);
+		nodePrivilegeMap.put(node, userPrivileges);
+
+		return new UserRolesSecurityPolicy(endpointPrivilegeMap, nodePrivilegeMap, participantsQuery, userAccountsQuery);
+	}
+
+	@Override
+	public SecurityPolicy createSingleSecurityPolicy(Bytes endpoint, Bytes node) {
+		Map<Bytes, UserRolesPrivileges> endpointPrivilegeMap = new HashMap<>();
+		Map<Bytes, UserRolesPrivileges> nodePrivilegeMap = new HashMap<>();
+
+		UserRolesPrivileges endpointPrivileges = getNodeRolesPrivilegs(endpoint);
+		endpointPrivilegeMap.put(endpoint, endpointPrivileges);
+
+		UserRolesPrivileges userPrivileges = getNodeRolesPrivilegs(node);
+		nodePrivilegeMap.put(node, userPrivileges);
+
+		return new UserRolesSecurityPolicy(endpointPrivilegeMap, nodePrivilegeMap, participantsQuery, userAccountsQuery);
+
+	}
+
+	private UserRolesPrivileges getNodeRolesPrivilegs(Bytes userAddress) {
+		UserRolesPrivileges userRolesPrivilege = nodePrivilegeMap.get(userAddress);
+		if (userRolesPrivilege == null) {
+			synchronized (nodePrivilegeMap) {
+				userRolesPrivilege = nodePrivilegeMap.get(userAddress);
+				if (userRolesPrivilege == null) {
+					nodePrivilegeMap.put(userAddress, getUserRolesPrivilegs(userAddress));
+					userRolesPrivilege = nodePrivilegeMap.get(userAddress);
+				}
+			}
+		}
+		return userRolesPrivilege;
 	}
 
 	private UserRolesPrivileges getUserRolesPrivilegs(Bytes userAddress) {

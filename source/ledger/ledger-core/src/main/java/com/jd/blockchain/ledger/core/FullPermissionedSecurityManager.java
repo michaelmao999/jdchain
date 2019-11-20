@@ -1,5 +1,6 @@
 package com.jd.blockchain.ledger.core;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import com.jd.blockchain.ledger.LedgerPermission;
@@ -15,6 +16,23 @@ class FullPermissionedSecurityManager implements LedgerSecurityManager {
 	public SecurityPolicy createSecurityPolicy(Set<Bytes> endpoints, Set<Bytes> nodes) {
 		return new FullPermissionedPolicy(endpoints, nodes);
 	}
+
+	@Override
+	public SecurityPolicy createSingleNodeSecurityPolicy(Set<Bytes> endpoints, Bytes node) {
+		Set<Bytes> nodes = new HashSet<>(1);
+		nodes.add(node);
+		return new FullPermissionedPolicy(endpoints, nodes);
+	}
+
+	@Override
+	public SecurityPolicy createSingleSecurityPolicy(Bytes endpoint, Bytes node) {
+		Set<Bytes> nodes = new HashSet<>(1);
+		nodes.add(node);
+		Set<Bytes> endpoints = new HashSet<>(1);
+		endpoints.add(endpoint);
+		return new FullPermissionedPolicy(endpoints, nodes);
+	}
+
 
 	private static class FullPermissionedPolicy implements SecurityPolicy {
 
