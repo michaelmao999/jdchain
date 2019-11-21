@@ -70,8 +70,13 @@ public class NodeSigningAppender implements TransactionService {
 //		short signAlgorithm = nodeKeyPair.getAlgorithm();
 //		SignatureFunction signFunc = Crypto.getSignatureFunction(signAlgorithm);
 //		SignatureDigest signDigest = signFunc.sign(nodeKeyPair.getPrivKey(), endpointRequestBytes);
-
-		DigitalSignature nodeSign = SignatureUtils.sign(txRequest.getTransactionContent(), nodeKeyPair);
+		DigitalSignature[] endpointSignatureList = txRequest.getEndpointSignatures();
+		DigitalSignature nodeSign;
+		if (endpointSignatureList.length == 1 && endpointSignatureList[0].getPubKey().equals(nodeKeyPair.getPubKey())) {
+			nodeSign = endpointSignatureList[0];
+		} else {
+			nodeSign = SignatureUtils.sign(txRequest.getTransactionContent(), nodeKeyPair);
+		}
 
 		txMessage.addNodeSignatures(nodeSign);
 

@@ -188,6 +188,12 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 	private void checkRequest(TransactionRequestExtension reqExt) {
 		// TODO: 把验签和创建交易并行化；
 		checkTxContentHash(reqExt);
+		if (reqExt.isSingleNodeSignature() && reqExt.isSingleEndpointSignature()) {
+			if (reqExt.getEndpointAddress().equals(reqExt.getNodeAddress())) {
+				verifySingnature(reqExt.getTransactionContent(), reqExt.getNodeSignature());
+				return;
+			}
+		}
 		checkEndpointSignatures(reqExt);
 		checkNodeSignatures(reqExt);
 	}
@@ -202,30 +208,25 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 		}
 	}
 
+	private void verifySingnature(TransactionContent txContent, Credential credential) {
+		if (!SignatureUtils.verifyHashSignature(txContent.getHash(), credential.getSignature().getDigest(),
+				credential.getPubKey())) {
+			// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
+			throw new IllegalTransactionException(
+					String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
+							txContent.getHash(), credential.getAddress()),
+					TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
+		}
+	}
 	private void checkNodeSignatures(TransactionRequestExtension request) {
 		TransactionContent txContent = request.getTransactionContent();
 		if (request.isSingleNodeSignature()) {
-			Credential node = request.getNodeSignature();
-			if (!SignatureUtils.verifyHashSignature(txContent.getHash(), node.getSignature().getDigest(),
-					node.getPubKey())) {
-				// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-				throw new IllegalTransactionException(
-						String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
-								request.getTransactionContent().getHash(), node.getAddress()),
-						TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
-			}
+			verifySingnature(txContent, request.getNodeSignature());
 		} else {
 			Collection<Credential> nodes = request.getNodes();
 			if (nodes != null) {
 				for (Credential node : nodes) {
-					if (!SignatureUtils.verifyHashSignature(txContent.getHash(), node.getSignature().getDigest(),
-							node.getPubKey())) {
-						// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-						throw new IllegalTransactionException(
-								String.format("Wrong transaction node signature! --[Tx Hash=%s][Node Signer=%s]!",
-										request.getTransactionContent().getHash(), node.getAddress()),
-								TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
-					}
+					verifySingnature(txContent, node);
 				}
 			}
 		}
@@ -234,27 +235,12 @@ public class TransactionBatchProcessor implements TransactionBatchProcess {
 	private void checkEndpointSignatures(TransactionRequestExtension request) {
 		TransactionContent txContent = request.getTransactionContent();
 		if (request.isSingleEndpointSignature()) {
-			Credential endpoint = request.getEndpointSignature();
-			if (!SignatureUtils.verifyHashSignature(txContent.getHash(), endpoint.getSignature().getDigest(),
-					endpoint.getPubKey())) {
-				// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-				throw new IllegalTransactionException(
-						String.format("Wrong transaction endpoint signature! --[Tx Hash=%s][Endpoint Signer=%s]!",
-								request.getTransactionContent().getHash(), endpoint.getAddress()),
-						TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
-			}
+			verifySingnature(txContent, request.getEndpointSignature());
 		} else {
 			Collection<Credential> endpoints = request.getEndpoints();
 			if (endpoints != null) {
 				for (Credential endpoint : endpoints) {
-					if (!SignatureUtils.verifyHashSignature(txContent.getHash(), endpoint.getSignature().getDigest(),
-							endpoint.getPubKey())) {
-						// 由于签名校验失败，引发IllegalTransactionException，使外部调用抛弃此交易请求；
-						throw new IllegalTransactionException(
-								String.format("Wrong transaction endpoint signature! --[Tx Hash=%s][Endpoint Signer=%s]!",
-										request.getTransactionContent().getHash(), endpoint.getAddress()),
-								TransactionState.IGNORED_BY_WRONG_CONTENT_SIGNATURE);
-					}
+					verifySingnature(txContent, endpoint);
 				}
 			}
 		}
